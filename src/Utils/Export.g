@@ -115,11 +115,16 @@ end;
 ############################################################################
 
 
-PrintTableText := function(filename, tbl)
+PrintTableText := function(filename, tbl, wrap)
     local out;
+
+    if not IsBool(wrap) then
+        Error("wrap must be true or false");
+    fi;
 
     out := OutputTextFile(filename, false);
 
+    SetPrintFormattingStatus(out, wrap);
     LogTo(out);
     Display(tbl);
     LogTo();

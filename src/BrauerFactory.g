@@ -25,19 +25,14 @@ LoadPackage("spinsym");
 #   p occurs to the first power in |2.A_n|.
 #
 #############################################################################
-
-
-
-
-BrauerTable_2AN_modP := function(
+ConstructSpinAltBrauerTable := function(
     n,
     p,
     ordtbl,
     quotienttbl,
-    trees,
-    fus
+    trees
 )
-    local p, modtbl, modquotient,
+    local modtbl, modquotient,
           ordirr, zpos,
           faithful, nonfaithful,
           allTreeChars, treeResults,
@@ -133,13 +128,86 @@ BrauerTable_2AN_modP := function(
         faithful
     );
     
-    
-    allTreeChars := ValidateBrauerTreeData(trees, faithful, p);
-    
-    
-    
-    
-    
+    allTreeChars := ValidateBrauerTreeData(
+        trees,
+        faithful,
+        ordirr,
+        p
+    );
+
+    for i in faithful do
+
+        if not i in allTreeChars
+           and PExponent(ordirr[i][1], p) <> 1
+        then
+            Error(
+                "faithful character ",
+                i,
+                " is neither in a tree nor defect zero"
+            );
+        fi;
+
+    od;
+
+    treeResults := List(
+        trees,
+        tr -> BrauerCharactersFromTree(ordtbl, modtbl, tr)
+    );
+
+    resultValues := [];
+
+    fusmod := GetFusionMap(modtbl, modquotient);
+
+    if fusmod = fail then
+        Error(
+            "could not obtain induced fusion from 2.A",
+            n,
+            " to A",
+            n,
+            " in characteristic ",
+            p
+        );
+    fi;
+
+    qirr := Irr(modquotient);
+
+    for phi in qirr do
+        inflatedValues := List(fusmod, j -> phi[j]);
+        Add(resultValues, inflatedValues);
+    od;
+
+    defectZeroFaithful := Filtered(
+        faithful,
+        i -> not i in allTreeChars
+             and PExponent(ordirr[i][1], p) = 1
+    );
+
+    for i in defectZeroFaithful do
+        chi := RestrictedClassFunction(ordirr[i], modtbl);
+        Add(resultValues, ValuesOfClassFunction(chi));
+    od;
+
+    for trres in treeResults do
+        Append(resultValues, trres.brauerValues);
+    od;
+
+    if Length(resultValues) <> NrConjugacyClasses(modtbl) then
+        Error(
+            "wrong number of Brauer characters: got ",
+            Length(resultValues),
+            ", expected ",
+            NrConjugacyClasses(modtbl)
+        );
+    fi;
+
+    resultValues := List(
+        resultValues,
+        vals -> Character(modtbl, vals)
+    );
+
+    SetIrr(modtbl, resultValues);
+
+    return modtbl;
 end;
 
 
@@ -167,7 +235,8 @@ end;
 #########################################################################
 # Validate the supplied Brauer-tree data.
 #########################################################################
-ValidateBrauerTreeData := function(trees, faithful, p)
+ValidateBrauerTreeData := function(trees, faithful, ordirr, p)
+    local allTreeChars, tr, i;
     
     allTreeChars := [];
 
@@ -224,26 +293,96 @@ ValidateBrauerTreeData := function(trees, faithful, p)
 end;
 
 
+SpinAltBrauerTable := function(n, p)
+    local tableFile, treeFile, variableName, trees,
+          ordtbl, quotienttbl, classParams, quotientParams,
+          fusion, modtbl;
 
+    tableFile := Concatenation(
+        "tables/2A",
+        String(n),
+        "_mod",
+        String(p),
+        ".g"
+    );
 
+    variableName := Concatenation("mod", String(p));
 
-t := CharacterTable("2.Alt(14)");;
-a := CharacterTable("A14");;
+    if IsExistingFile(tableFile) then
+        Read(tableFile);
 
+        if not IsBoundGlobal(variableName) then
+            Error(
+                "precomputed table file did not define ",
+                variableName,
+                ": ",
+                tableFile
+            );
+        fi;
 
+        return ValueGlobal(variableName);
+    fi;
 
-t := CharacterTable("2.Alt(14)");;
-a := CharacterTable("A14");;
+    treeFile := Concatenation(
+        "data/2A",
+        String(n),
+        "_mod",
+        String(p),
+        "_trees.g"
+    );
 
+    if not IsExistingFile(treeFile) then
+        Error(
+            "Brauer tree data file not found: ",
+            treeFile,
+            ". Generate this data before trying again."
+        );
+    fi;
 
-cpt := ClassParameters(t);;
-cpa := ClassParameters(a);;
+    Read(treeFile);
 
-fus := List(cpt, x -> Position(cpa, [1, x[2]]));;
+    if not IsBoundGlobal("trees") then
+        Error("tree data file did not define the variable trees: ", treeFile);
+    fi;
 
-StoreFusion(t, fus, a);
+    trees := ValueGlobal("trees");
 
+    ordtbl := CharacterTable(
+        Concatenation("2.Alt(", String(n), ")")
+    );
 
+    if ordtbl = fail then
+        Error("could not retrieve the ordinary table of 2.Alt(", n, ")");
+    fi;
 
+    quotienttbl := CharacterTable(Concatenation("A", String(n)));
 
-mod13 := BrauerTable2A14Mod13(t, a, trees);;
+    if quotienttbl = fail then
+        Error("could not retrieve the ordinary table of A", n);
+    fi;
+
+    classParams := ClassParameters(ordtbl);
+    quotientParams := ClassParameters(quotienttbl);
+    fusion := List(
+        classParams,
+        x -> Position(quotientParams, [1, x[2]])
+    );
+
+    if fail in fusion then
+        Error("could not construct the ordinary class fusion 2.A", n, " -> A", n);
+    fi;
+
+    StoreFusion(ordtbl, fusion, quotienttbl);
+
+    modtbl := ConstructSpinAltBrauerTable(
+        n,
+        p,
+        ordtbl,
+        quotienttbl,
+        trees
+    );
+
+    StoreCharacterTable(tableFile, modtbl, variableName);
+
+    return modtbl;
+end;

@@ -12,6 +12,27 @@ Read("src/Trees/MullerTreeTemplate.g");
 GenerateMullerTrees := function(n, p)
     local tbl, data, trees, d, filename, out;
 
+    filename := Concatenation(
+        "data/2A",
+        String(n),
+        "_mod",
+        String(p),
+        "_trees.g"
+    );
+
+    if IsExistingFile(filename) then
+        Read(filename);
+
+        if not IsBoundGlobal("trees") then
+            Error(
+                "tree data file did not define the variable trees: ",
+                filename
+            );
+        fi;
+
+        return ValueGlobal("trees");
+    fi;
+
     tbl := CharacterTable(
         Concatenation(
             "2.Alt(",
@@ -29,14 +50,6 @@ GenerateMullerTrees := function(n, p)
     trees := List(
         data,
         d -> MullerResolveTree(tbl, d)
-    );
-
-    filename := Concatenation(
-        "data/2A",
-        String(n),
-        "_mod",
-        String(p),
-        "_trees.g"
     );
 
     out := OutputTextFile(

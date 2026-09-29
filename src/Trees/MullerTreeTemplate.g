@@ -4,11 +4,10 @@
 # Constructs the Brauer trees for faithful weight-1 blocks of
 # the Schur cover of A_n, using the trees in Muller's Tables 4, 5, and 6.
 #
-# plus  = [lambda_1^+, ..., lambda_s^+]
-# zero  = lambda_0
-# minus = [lambda_1^-, ..., lambda_t^-]
-#
-# Each entry is a character position in CharacterParameters(tbl).
+# For epsilon = +1, plus and minus are lists of character positions and zero
+# is the pair of exceptional character positions.
+# For epsilon = -1, plus and minus are lists of split-character position pairs
+# and zero is a single character position.
 #############################################################################
 
 
@@ -59,22 +58,22 @@ MullerTreeNegative := function(plus, zero, minus, name)
 
     plus1 := List(
         plus,
-        x -> [x, '+']
+        x -> x[1]
     );
 
     plus2 := List(
         plus,
-        x -> [x, '-']
+        x -> x[2]
     );
 
     minus1 := List(
         minus,
-        x -> [x, '+']
+        x -> x[1]
     );
 
     minus2 := List(
         minus,
-        x -> [x, '-']
+        x -> x[2]
     );
 
     return rec(
@@ -83,10 +82,10 @@ MullerTreeNegative := function(plus, zero, minus, name)
         center := [zero],
 
         branches := [
-            plus1,
-            minus1,
-            plus2,
-            minus2
+            Reversed(plus1),
+            Reversed(minus1),
+            Reversed(plus2),
+            Reversed(minus2)
         ],
 
         exceptionalMultiplicity := 1

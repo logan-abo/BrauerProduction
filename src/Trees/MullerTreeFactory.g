@@ -12,6 +12,14 @@ Read("src/Trees/MullerTreeTemplate.g");
 GenerateMullerTrees := function(n, p)
     local tbl, data, trees, d, filename, out;
 
+    if p mod 2 = 0 or not IsPrimeInt(p) then
+        Error("GenerateMullerTrees requires odd prime p");
+    fi;
+
+    if n < p then
+        Error("MullerWeightOneData requires n >= p");
+    fi;
+
     filename := Concatenation(
         "data/2A",
         String(n),
@@ -30,7 +38,17 @@ GenerateMullerTrees := function(n, p)
             );
         fi;
 
-        return ValueGlobal("trees");
+        trees := ValueGlobal("trees");
+
+        if IsList(trees) then
+            if Length(trees) > 0 then
+                return trees;
+            fi;
+
+            if Length(MullerPBarCores(n - p, p)) = 0 then
+                return trees;
+            fi;
+        fi;
     fi;
 
     tbl := CharacterTable(
@@ -108,9 +126,9 @@ IsPBarCore := function(lambda, p)
     for y in [0 .. p - 1] do
         for x in X[y + 1] do
 
-            if [x, y] <> [1, 0] then
+            if x > 0 and [x, y] <> [1, 0] then
 
-                if not x - 1 in X[y + 1] then
+                if not (x - 1 in X[y + 1]) then
                     return false;
                 fi;
 
@@ -154,10 +172,63 @@ MullerPBarCores := function(m, p)
         )
     );
 
-    return Filtered(
+    parts := Filtered(
         parts,
         lambda -> IsPBarCore(lambda, p)
     );
+
+    Sort(
+        parts,
+        function(a, b)
+            local i;
+
+            i := 1;
+
+            while i <= Length(a) and i <= Length(b) do
+                if a[i] <> b[i] then
+                    return a[i] > b[i];
+                fi;
+
+                i := i + 1;
+            od;
+
+            return Length(a) > Length(b);
+        end
+    );
+
+    return parts;
+end;
+
+
+#############################################################################
+# Return a partition label without GAP's display padding.
+#############################################################################
+
+MullerPartitionName := function(partition)
+    local name, i;
+
+    if Length(partition) = 0 then
+        return "[]";
+    fi;
+
+    name := Concatenation(
+        "[",
+        String(partition[1])
+    );
+
+    i := 2;
+
+    while i <= Length(partition) do
+        name := Concatenation(
+            name,
+            ",",
+            String(partition[i])
+        );
+
+        i := i + 1;
+    od;
+
+    return Concatenation(name, "]");
 end;
 
 
@@ -298,35 +369,96 @@ MullerResolveTree := function(tbl, data)
 
     plus := [];
 
-    for x in data.plus do
-        Add(
-            plus,
-            MullerSpinPos(
-                tbl,
-                x.partition,
-                x.split
-            )
-        );
-    od;
-
-    zero := MullerSpinPos(
-        tbl,
-        data.zero.partition,
-        data.zero.split
-    );
-
     minus := [];
 
-    for x in data.minus do
-        Add(
-            minus,
-            MullerSpinPos(
-                tbl,
-                x.partition,
-                x.split
-            )
+    if data.epsilon = 1 then
+
+        if data.zero.split <> '+' then
+            Error("MullerResolveTree: positive tree requires split zero");
+        fi;
+
+        for x in data.plus do
+            if x.split <> 0 then
+                Error("MullerResolveTree: positive tree branch must be unsplit");
+            fi;
+
+            Add(
+                plus,
+                MullerSpinPos(
+                    tbl,
+                    x.partition,
+                    x.split
+                )
+            );
+        od;
+
+        zero := [
+            MullerSpinPos(tbl, data.zero.partition, '+'),
+            MullerSpinPos(tbl, data.zero.partition, '-')
+        ];
+
+        for x in data.minus do
+            if x.split <> 0 then
+                Error("MullerResolveTree: negative branch must be unsplit");
+            fi;
+
+            Add(
+                minus,
+                MullerSpinPos(
+                    tbl,
+                    x.partition,
+                    x.split
+                )
+            );
+        od;
+
+    elif data.epsilon = -1 then
+
+        for x in data.plus do
+            if x.split <> '+' then
+                Error("MullerResolveTree: positive branch must split");
+            fi;
+
+            Add(
+                plus,
+                [
+                    MullerSpinPos(tbl, x.partition, '+'),
+                    MullerSpinPos(tbl, x.partition, '-')
+                ]
+            );
+        od;
+
+        if data.zero.split <> 0 then
+            Error("MullerResolveTree: negative tree requires unsplit zero");
+        fi;
+
+        zero := MullerSpinPos(
+            tbl,
+            data.zero.partition,
+            data.zero.split
         );
-    od;
+
+        for x in data.minus do
+            if x.split <> '+' then
+                Error("MullerResolveTree: negative branch must split");
+            fi;
+
+            Add(
+                minus,
+                [
+                    MullerSpinPos(tbl, x.partition, '+'),
+                    MullerSpinPos(tbl, x.partition, '-')
+                ]
+            );
+        od;
+
+    else
+
+        Error(
+            "MullerResolveTree: epsilon must be +1 or -1"
+        );
+
+    fi;
 
     return MullerTreeTemplate(
         plus,
@@ -351,8 +483,8 @@ MullerWeightOneData := function(n, p, tbl)
           epsilon,
           results;
 
-    if p mod 2 = 0 then
-        Error("MullerWeightOneData requires odd p");
+    if p mod 2 = 0 or not IsPrimeInt(p) then
+        Error("MullerWeightOneData requires odd prime p");
     fi;
 
     if n < p then
@@ -417,7 +549,7 @@ MullerWeightOneData := function(n, p, tbl)
 
         od;
 
-        zero := MullerZeroPartition(lambda);
+        zero := MullerZeroPartition(lambda, p);
 
         if MullerSign(zero) = 1 then
             zero := rec(
@@ -486,7 +618,7 @@ MullerWeightOneData := function(n, p, tbl)
         epsilon := MullerSign(lambda);
 
         data := rec(
-            name := String(lambda),
+            name := MullerPartitionName(lambda),
             plus := plus,
             zero := zero,
             minus := minus,

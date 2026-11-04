@@ -1,4 +1,7 @@
 /out
 /archive
 /dev
+/apienv
+
 config.json
+gemini_api.py

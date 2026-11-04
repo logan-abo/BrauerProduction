@@ -1,9 +1,9 @@
 trees := [ rec(
-branches := [ [ 95, 91, 82, 79 ], [ 105 ] ],
-center := [ 99, 100 ],
-exceptionalMultiplicity := 2,
-name := "[3]" ), rec(
 branches := [ [ 101, 103 ], [ 85, 80, 77 ], [ 102, 104 ], [ 86, 81, 78 ] ],
 center := [ 98 ],
 exceptionalMultiplicity := 1,
-name := "[2,1]" ) ];
+name := "[ 2, 1 ]" ), rec(
+branches := [ [ 95, 91, 82, 79 ], [ 105 ] ],
+center := [ 99, 100 ],
+exceptionalMultiplicity := 2,
+name := "[ 3 ]" ) ];

@@ -1,57 +1,26 @@
-LoadPackage( "ctbllib" );
-
-# 	Given a character table tbl, checks each character for the set of prime element orders distinct 
-# from the underlying characteristic for which an element of that order in the underlying group 
-# acts with a fixed point through the corresponding representation.
-
-#FindAllowedFixedPoints := function(tbl)
-#	local p, char, indices, dimFixeds, allowed, vector, allowedFixedPoints;
-#	
-#	allowedFixedPoints := [];
-#
-#	for char in Irr(tbl) do
-#		vector := [];
-#
-#		for p in PrimeDivisors(Size(tbl)) do
-#			if p = UnderlyingCharacteristic then continue; fi;
-#
-#			indices := Filtered([1..Size(char)], x->OrdersClassRepresentatives(tbl)[x] = p);
-#			dimFixeds := List(indices, i->(1/p)*Sum([1..p], x->char[PowerMap(tbl, x, i)]));
-#			allowed := Size(Filtered(dimFixeds, x->x>0))>0;
-#
-#			if allowed then Append(vector, [p]); fi;
-#		od;
-#		
-#		Append(allowedFixedPoints, [vector]);
-#	od;
-#	
-#	
-#	return Set(allowedFixedPoints);
-#end;
-
-
-#Given an ordinary character table tbl, runs FindAllowedFixedPoints on that table and all the Brauer tables for the same group.
-
-#Read("tables/2A13_mod11.g");
-#2A13_mod11_table := mod11;
-#
-#Print(FindAllowedFixedPoints(2A13_mod11_table), "\n");
-#
-#precompute_table := BrauerTable("2.A13", 11);
-#
-#if precompute_table = fail then
-#	Print("This table is not available in the ATLAS");
-#
-#else
-#	Print(FindAllowedFixedPoints(precompute_table));
-#fi;
-
-
 LoadPackage("ctbllib");
 LoadPackage("spinsym");
 
-FindAllowedFixedPoints := function(tbl)
-    local r, primes, char, p, indices, dimFixeds, vector, allowedFixedPoints;
+
+show_char_indices := false;
+
+
+# Prime characteristics r in {2, 3, 5, 7}
+for r in [2, 3, 5, 7] do
+    FindAllowedFixedPoints(BrauerTable(CharacterTable("2.Alt(13)"), r), show_char_indices);
+od;
+
+# Prime characteristics r in {11, 13} from precomputed tables
+Read("tables/2A13_mod11.g");
+FindAllowedFixedPoints(mod11, show_char_indices);
+
+Read("tables/2A13_mod13.g");
+FindAllowedFixedPoints(mod13, show_char_indices);
+
+
+
+FindAllowedFixedPoints := function(tbl, showIndices)
+    local r, primes, char, q, classIndices, dimFixeds, vector, allowedFixedPoints, charIndices;
 
     r := UnderlyingCharacteristic(tbl);
     primes := Filtered(PrimeDivisors(Size(tbl)), x -> x <> r);
@@ -59,39 +28,27 @@ FindAllowedFixedPoints := function(tbl)
 
     for char in Irr(tbl) do
         vector := [];
-        for p in primes do
-            indices := Filtered([1..Size(char)], x -> OrdersClassRepresentatives(tbl)[x] = p);
-            dimFixeds := List(indices, i -> (1/p) * Sum([1..p], x -> char[PowerMap(tbl, x, i)]));
+        for q in primes do
+            classIndices := Filtered([1..Size(char)], x -> OrdersClassRepresentatives(tbl)[x] = q);
+            dimFixeds := List(classIndices, i -> (1/q) * Sum([1..q], x -> char[PowerMap(tbl, x, i)]));
             if Size(Filtered(dimFixeds, x -> x > 0)) > 0 then
-                Add(vector, p);
+                Add(vector, q);
             fi;
         od;
         Add(allowedFixedPoints, vector);
     od;
 
-    Print("=== ", Identifier(tbl), " (r = ", r, ") ===\n");
-    Print("  Universal primes (Condition 1) : ", Intersection(allowedFixedPoints), "\n");
+    Print(Identifier(tbl), "\n");
+
     for vector in Set(allowedFixedPoints) do
-        Print("  A_chi = ", List(vector, q -> Concatenation(String(r), "-", String(q))),
-              "  (missing: ", Difference(primes, vector), ")",
-              "  <- chars: ", Filtered([1..Length(allowedFixedPoints)], i -> allowedFixedPoints[i] = vector), "\n");
+        charIndices := Filtered([1..Length(allowedFixedPoints)], i -> allowedFixedPoints[i] = vector);
+        if showIndices then
+            Print("  chi_", charIndices[1], " (all indices: ", charIndices, ") ==> fixed-point-free: ", Difference(primes, vector), "\n");
+        else
+            Print("  chi_", charIndices[1], " ==> fixed-point-free: ", Difference(primes, vector), "\n");
+        fi;
     od;
     Print("\n");
 
     return Set(allowedFixedPoints);
 end;
-
-# 1. Verify on 2.A13 mod 11 (produced vs. SpinSym/ATLAS)
-Read("tables/2A13_mod11.g");
-FindAllowedFixedPoints(mod11);
-FindAllowedFixedPoints(BrauerTable("2.A13", 11));
-
-# 2. Run across all tables for 2.Alt(14)
-ord14 := CharacterTable("2.Alt(14)");
-FindAllowedFixedPoints(ord14);
-
-Read("tables/2A14_mod11.g");
-FindAllowedFixedPoints(mod11);
-
-Read("tables/2A14_mod13.g");
-FindAllowedFixedPoints(mod13);
